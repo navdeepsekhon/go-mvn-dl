@@ -1,5 +1,5 @@
 # go-mvn-dl
-go-mvn-dl is Go library that allows you to easily download maven artifacts from Go code
+go-mvn-dl is Go library that allows you to easily download maven artifacts from Go code. Supports custom maven repos and authentication.
 
 # Install
 ```
