@@ -31,7 +31,7 @@ func TestSnapshotArtifactUrl(t *testing.T) {
 	}
 }
 
-func mockHttpGet(url string) (*http.Response, error) {
+func mockHttpGet(url, user, pwd string) (*http.Response, error) {
 	body := []byte("<metadata><versioning><snapshot><timestamp>123</timestamp><buildNumber>456</buildNumber></snapshot></versioning></metadata>")
 	resp := &http.Response {
 		StatusCode: 200,

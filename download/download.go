@@ -20,7 +20,9 @@ type Artifact struct {
 	IsSnapshot bool
 	SnapshotVersion	string
 	RepositoryUrl	string
-	Downloader	func (string) (*http.Response, error)
+	RepoUser	string
+	RepoPassword	string
+	Downloader	func (string, string, string) (*http.Response, error)
 }
 
 type metadata struct {
@@ -28,17 +30,19 @@ type metadata struct {
 	BuildNumber	string	`xml:"versioning>snapshot>buildNumber"`
 }
 
-func Download(name, dest, repo, filename string) (string, error) {
+func Download(name, dest, repo, filename, user, pwd string) (string, error) {
 	a, err := ParseName(name)
 	if err != nil { return "", err}
 
-	a.Downloader = http.Get
+	a.Downloader = httpGetCustom
 	a.RepositoryUrl = repo
+	a.RepoUser = user
+	a.RepoPassword = pwd
 
 	url, err := ArtifactUrl(a)
 	if err != nil { return "", err}
 
-	resp, err := http.Get(url)
+	resp, err := a.Downloader(url, user, pwd)
 	if err != nil { return "", err}
 	defer resp.Body.Close()
 
@@ -58,6 +62,19 @@ func Download(name, dest, repo, filename string) (string, error) {
 	return filepath, nil
 }
 
+func httpGetCustom(url, user, pwd string) (*http.Response, error){
+	if user != "" && pwd != "" {
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.SetBasicAuth(user, pwd)
+		return client.Do(req)
+	}
+
+	return http.Get(url)
+}
 func ParseName(n string) (Artifact, error) {
 	parts := strings.Split(n, ":")
 	artifact := Artifact{}
@@ -121,12 +138,12 @@ func ArtifactUrl(a Artifact) (string, error) {
 		}
 	}
 
-	return a.RepositoryUrl + ArtifactPath(a), nil
+	return a.RepositoryUrl + artifactPath(a), nil
 }
 
 func LatestSnapshotVersion(a Artifact) (string, error) {
-	metadataUrl := a.RepositoryUrl + GroupPath(a) + "/maven-metadata.xml"
-	resp, err := a.Downloader(metadataUrl)
+	metadataUrl := a.RepositoryUrl + groupPath(a) + "/maven-metadata.xml"
+	resp, err := a.Downloader(metadataUrl, a.RepoUser, a.RepoPassword)
 	if err != nil {
 		return "", err
 	} else if resp.StatusCode != 200 {
@@ -148,11 +165,11 @@ func LatestSnapshotVersion(a Artifact) (string, error) {
 	return fmt.Sprintf("%s-%s", m.Timestamp, m.BuildNumber), nil
 }
 
-func ArtifactPath(a Artifact) string {
-	return GroupPath(a) + "/" + FileName(a)
+func artifactPath(a Artifact) string {
+	return groupPath(a) + "/" + FileName(a)
 }
 
-func GroupPath(a Artifact) string {
+func groupPath(a Artifact) string {
 	parts := append(strings.Split(a.GroupId, "."), a.Id)
 	if a.IsSnapshot {
 		return strings.Join(append(parts, a.Version + "-SNAPSHOT"), "/")
