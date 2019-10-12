@@ -30,7 +30,7 @@ type metadata struct {
 	BuildNumber	string	`xml:"versioning>snapshot>buildNumber"`
 }
 
-func Download(name, dest, repo, filename, user, pwd string) (string, error) {
+func Download(name, dest, repo, filename, extension, user, pwd string) (string, error) {
 	a, err := ParseName(name)
 	if err != nil { return "", err}
 
@@ -38,6 +38,7 @@ func Download(name, dest, repo, filename, user, pwd string) (string, error) {
 	a.RepositoryUrl = repo
 	a.RepoUser = user
 	a.RepoPassword = pwd
+	a.Extension = extension
 
 	url, err := ArtifactUrl(a)
 	if err != nil { return "", err}
