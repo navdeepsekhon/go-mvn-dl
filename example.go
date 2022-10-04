@@ -1,8 +1,9 @@
 package main
 
 import (
-	"go-mvn-dl/download"
 	"log"
+
+	"github.com/ml000x/go-mvn-dl/download"
 )
 
 func main() {

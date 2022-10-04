@@ -2,24 +2,31 @@ package test
 
 import (
 	"testing"
-	"go-mvn-dl/download"
+
+	"github.com/ml000x/go-mvn-dl/download"
 )
 
 func TestParseName(t *testing.T) {
 	a, err := download.ParseName("org.apache.commons:commons-lang3:3.4")
-	if err != nil { t.Error(err) }
+	if err != nil {
+		t.Error(err)
+	}
 	verifyArtifact(a, "org.apache.commons", "commons-lang3", "3.4", "", false, t)
 }
 
 func TestParseNameWithExtension(t *testing.T) {
 	a, err := download.ParseName("org.apache.commons:commons-lang3:war:3.4")
-	if err != nil { t.Error(err) }
+	if err != nil {
+		t.Error(err)
+	}
 	verifyArtifact(a, "org.apache.commons", "commons-lang3", "3.4", "war", false, t)
 }
 
 func TestParseNameWithSnapshot(t *testing.T) {
 	a, err := download.ParseName("org.apache.commons:commons-lang3:3.4-SNAPSHOT")
-	if err != nil { t.Error(err) }
+	if err != nil {
+		t.Error(err)
+	}
 	verifyArtifact(a, "org.apache.commons", "commons-lang3", "3.4", "", true, t)
 }
 

@@ -1,26 +1,27 @@
 package test
 
 import (
-	"testing"
-	"go-mvn-dl/download"
-	"net/http"
-	"io/ioutil"
 	"bytes"
+	"io/ioutil"
+	"net/http"
 	"strings"
+	"testing"
+
+	"github.com/ml000x/go-mvn-dl/download"
 )
 
 func TestSnapshotArtifactUrl(t *testing.T) {
-	a := download.Artifact {
-		GroupId: "my.group",
-		Id: "theFact",
-		Version: "7",
-		IsSnapshot: true,
+	a := download.Artifact{
+		GroupId:       "my.group",
+		Id:            "theFact",
+		Version:       "7",
+		IsSnapshot:    true,
 		RepositoryUrl: "http://greatestRepo.com/",
-		Downloader: mockHttpGet,
+		Downloader:    mockHttpGet,
 	}
 
 	url, err := download.ArtifactUrl(a)
-	
+
 	if err != nil {
 		t.Error(err)
 	}
@@ -33,19 +34,19 @@ func TestSnapshotArtifactUrl(t *testing.T) {
 
 func mockHttpGet(url, user, pwd string) (*http.Response, error) {
 	body := []byte("<metadata><versioning><snapshot><timestamp>123</timestamp><buildNumber>456</buildNumber></snapshot></versioning></metadata>")
-	resp := &http.Response {
+	resp := &http.Response{
 		StatusCode: 200,
-		Body: ioutil.NopCloser(bytes.NewReader(body)),
+		Body:       ioutil.NopCloser(bytes.NewReader(body)),
 	}
 
 	return resp, nil
 }
 
 func TestPackagingArtifactUrl(t *testing.T) {
-	a := download.Artifact {
-		GroupId: "org.apache.commons",
-		Id: "commons-lang3",
-		Version: "3.4",
+	a := download.Artifact{
+		GroupId:   "org.apache.commons",
+		Id:        "commons-lang3",
+		Version:   "3.4",
 		Extension: "pom",
 	}
 
@@ -61,10 +62,10 @@ func TestPackagingArtifactUrl(t *testing.T) {
 }
 
 func TestClassifierArtifactUrl(t *testing.T) {
-	a := download.Artifact {
-		GroupId: "org.apache.commons",
-		Id: "commons-lang3",
-		Version: "3.4",
+	a := download.Artifact{
+		GroupId:    "org.apache.commons",
+		Id:         "commons-lang3",
+		Version:    "3.4",
 		Classifier: "all",
 	}
 
@@ -80,9 +81,9 @@ func TestClassifierArtifactUrl(t *testing.T) {
 }
 
 func TestContainsDefaultRepository(t *testing.T) {
-	a := download.Artifact {
+	a := download.Artifact{
 		GroupId: "org.apache.commons",
-		Id: "commons-lang3",
+		Id:      "commons-lang3",
 		Version: "3.4",
 	}
 
@@ -98,10 +99,10 @@ func TestContainsDefaultRepository(t *testing.T) {
 }
 
 func TestContainsCustomRepository(t *testing.T) {
-	a := download.Artifact {
-		GroupId: "org.apache.commons",
-		Id: "commons-lang3",
-		Version: "3.4",
+	a := download.Artifact{
+		GroupId:       "org.apache.commons",
+		Id:            "commons-lang3",
+		Version:       "3.4",
 		RepositoryUrl: "my.repo.com/",
 	}
 
