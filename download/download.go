@@ -1,38 +1,42 @@
 package download
 
 import (
-	"fmt"
-	"strings"
-	"net/http"
-	"io/ioutil"
 	"encoding/xml"
-	"io"
-	"os"
 	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strings"
 )
 
 type Artifact struct {
-	GroupId	string
-	Id	string
-	Version	string
-	Extension	string
-	Classifier	string
-	IsSnapshot bool
-	SnapshotVersion	string
-	RepositoryUrl	string
-	RepoUser	string
-	RepoPassword	string
-	Downloader	func (string, string, string) (*http.Response, error)
+	GroupId         string
+	Id              string
+	Version         string
+	Extension       string
+	Classifier      string
+	IsSnapshot      bool
+	SnapshotVersion string
+	RepositoryUrl   string
+	RepoUser        string
+	RepoPassword    string
+	Downloader      func(string, string, string) (*http.Response, error)
 }
 
-type metadata struct {
-	Timestamp	string	`xml:"versioning>snapshot>timestamp"`
-	BuildNumber	string	`xml:"versioning>snapshot>buildNumber"`
+type Metadata struct {
+	LatestVersion  string `xml:"versioning>latest"`
+	ReleaseVersion string `xml:"versioning>release"`
+	Timestamp      string `xml:"versioning>snapshot>timestamp"`
+	BuildNumber    string `xml:"versioning>snapshot>buildNumber"`
 }
 
 func Download(name, dest, repo, filename, extension, user, pwd string) (string, error) {
 	a, err := ParseName(name)
-	if err != nil { return "", err}
+	if err != nil {
+		return "", err
+	}
 
 	a.Downloader = httpGetCustom
 	a.RepositoryUrl = repo
@@ -41,10 +45,14 @@ func Download(name, dest, repo, filename, extension, user, pwd string) (string, 
 	a.Extension = extension
 
 	url, err := ArtifactUrl(a)
-	if err != nil { return "", err}
+	if err != nil {
+		return "", err
+	}
 
 	resp, err := a.Downloader(url, user, pwd)
-	if err != nil { return "", err}
+	if err != nil {
+		return "", err
+	}
 	defer resp.Body.Close()
 
 	if filename == "" {
@@ -54,16 +62,34 @@ func Download(name, dest, repo, filename, extension, user, pwd string) (string, 
 	filepath := dest + "/" + filename
 
 	out, err := os.Create(filepath)
-	if err != nil { return "", err}
+	if err != nil {
+		return "", err
+	}
 	defer out.Close()
 
 	_, err = io.Copy(out, resp.Body)
-	if err != nil { return "", err}
+	if err != nil {
+		return "", err
+	}
 
 	return filepath, nil
 }
 
-func httpGetCustom(url, user, pwd string) (*http.Response, error){
+func DownloadMavenMetadata(name, repo, user, pwd string) (*Metadata, error) {
+	a, err := ParseName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	a.Downloader = httpGetCustom
+	a.RepositoryUrl = repo
+	a.RepoUser = user
+	a.RepoPassword = pwd
+
+	return fetchMavenMetadata(a)
+}
+
+func httpGetCustom(url, user, pwd string) (*http.Response, error) {
 	if user != "" && pwd != "" {
 		client := &http.Client{}
 		req, err := http.NewRequest("GET", url, nil)
@@ -83,7 +109,7 @@ func ParseName(n string) (Artifact, error) {
 	if len >= 3 {
 		artifact.GroupId = parts[0]
 		artifact.Id = parts[1]
-		artifact.Version = parts[len - 1]
+		artifact.Version = parts[len-1]
 
 		if len > 3 {
 			artifact.Extension = parts[2]
@@ -142,28 +168,41 @@ func ArtifactUrl(a Artifact) (string, error) {
 	return a.RepositoryUrl + artifactPath(a), nil
 }
 
-func LatestSnapshotVersion(a Artifact) (string, error) {
-	metadataUrl := a.RepositoryUrl + groupPath(a) + "/maven-metadata.xml"
-	resp, err := a.Downloader(metadataUrl, a.RepoUser, a.RepoPassword)
-	if err != nil {
-		return "", err
-	} else if resp.StatusCode != 200 {
-		return "", errors.New(fmt.Sprintf("unable to fetch maven metadata from %s Http statusCode: %d", metadataUrl, resp.StatusCode))
-	}
+func fetchMavenMetadata(a Artifact) (*Metadata, error) {
+	return downloadMavenMetadata(a, metadataPath(a))
+}
 
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	m := metadata{}
-	err = xml.Unmarshal(body, &m)
+func LatestSnapshotVersion(a Artifact) (string, error) {
+	m, err := downloadMavenMetadata(a, snapshotMetadataPath(a))
 
 	if err != nil {
 		return "", nil
 	}
 
 	return fmt.Sprintf("%s-%s", m.Timestamp, m.BuildNumber), nil
+}
+
+func downloadMavenMetadata(a Artifact, metadataUrl string) (*Metadata, error) {
+	resp, err := a.Downloader(metadataUrl, a.RepoUser, a.RepoPassword)
+	if err != nil {
+		return nil, err
+	} else if resp.StatusCode != 200 {
+		return nil, errors.New(fmt.Sprintf("unable to fetch maven Metadata from %s Http statusCode: %d", metadataUrl, resp.StatusCode))
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	m := Metadata{}
+	err = xml.Unmarshal(body, &m)
+
+	if err != nil {
+		return nil, nil
+	}
+
+	return &m, err
 }
 
 func artifactPath(a Artifact) string {
@@ -173,8 +212,17 @@ func artifactPath(a Artifact) string {
 func groupPath(a Artifact) string {
 	parts := append(strings.Split(a.GroupId, "."), a.Id)
 	if a.IsSnapshot {
-		return strings.Join(append(parts, a.Version + "-SNAPSHOT"), "/")
+		return strings.Join(append(parts, a.Version+"-SNAPSHOT"), "/")
 	} else {
 		return strings.Join(append(parts, a.Version), "/")
 	}
+}
+
+func metadataPath(a Artifact) string {
+	parts := append(strings.Split(a.GroupId, "."), a.Id)
+	return a.RepositoryUrl + strings.Join(append(parts), "/") + "/maven-metadata.xml"
+}
+
+func snapshotMetadataPath(a Artifact) string {
+	return a.RepositoryUrl + groupPath(a) + "/maven-metadata.xml"
 }
